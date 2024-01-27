@@ -58,6 +58,14 @@ def get_worklogs(client: JIRA, user: dict, first: date, last: date):
     return worklogs
 
 
+def workdays(start: date, end: date):
+    current = start
+    while current <= end:
+        if current.weekday() < 5:
+            yield current
+        current += timedelta(days=1)
+
+
 def main():
     client, user = connect()
 
@@ -65,8 +73,14 @@ def main():
     first, last = first_and_last(any_date)
     my_worklogs = get_worklogs(client, user, first, last)
 
-    pprint(my_worklogs)
+    total = 0
+    for day in workdays(first, last):
+        daily_logs = my_worklogs.get(str(day), [])
+        daily_hours = sum(log.time_spent for log in daily_logs)
+        print(day, daily_hours)
+        total += daily_hours
 
+    print(f"{total=}")
 
 if __name__ == "__main__":
     main()
