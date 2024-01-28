@@ -139,7 +139,7 @@ def make_time_logs(author: str, day: str, goal_hours: float, tickets: list):
 def publish_jira_worklogs(client: JIRA, worklogs: list):
     """Adds a worklog to a JIRA ticket."""
     for log in worklogs:
-        print(f" -> Pushing {log.time_spent} h on {log.issue}, for {log.date}")
+        print(f" -> Pushing {log.time_spent}h on {log.issue}, for {log.date}")
         client.add_worklog(
             issue=log.issue,
             timeSpent=f"{log.time_spent}h",
@@ -155,12 +155,13 @@ def main():
         "../../work/configurator-www",
     ]
     any_date = date(2024, 1, 5)
-
-    ## Start the job
-    first, last = first_and_last(any_date)
     skip = make_skip_days(
         ["2024-01-01..2024-01-05", "2024-01-24", "2024-01-29..2024-01-31"]
     )
+    # TODO: add parameters for "actual push"
+
+    ## Start the job
+    first, last = first_and_last(any_date)
 
     ## Read JIRA worklogs
     client, user = connect()
@@ -182,15 +183,16 @@ def main():
         day_tickets = find_all_ticket_ids(day_logs)
         tickets = [current_task] + day_tickets if current_task else day_tickets
 
-        remaining_hours = float(DAILY_HOURS) - sum(
-            x.time_spent for x in worklogs[day_str]
-        )
+        already_booked = sum(x.time_spent for x in worklogs[day_str])
+        remaining_hours = float(DAILY_HOURS) - already_booked
         if remaining_hours > 0 and tickets:
             current_task = tickets[-1]
             new_logs = make_time_logs(
                 user["accountId"], day_str, remaining_hours, tickets
             )
             publish_jira_worklogs(client, new_logs)
+        else:
+            print(f"No updates needed for {day_str}, {already_booked=} hours.")
 
 
 if __name__ == "__main__":
