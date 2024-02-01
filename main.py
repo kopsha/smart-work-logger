@@ -123,8 +123,6 @@ def find_all_ticket_ids(gitlog_entries):
     for entry in gitlog_entries:
         found_tickets = TICKET_PATTERN.findall(entry.message)
         for ticket in found_tickets:
-            if ticket == "SOOL-2349":
-                ticket = "SOOL-2340"
             tickets.setdefault(ticket, None)
 
     return list(tickets.keys())
@@ -156,9 +154,11 @@ def main():
     ]
     any_date = date(2024, 1, 5)
     skip = make_skip_days(
-        ["2024-01-01..2024-01-05", "2024-01-24", "2024-01-29..2024-01-31"]
+        [
+            "2024-01-01..2024-01-05",
+            "2024-01-24",
+        ]
     )
-    # TODO: add parameters for "actual push"
 
     ## Start the job
     first, last = first_and_last(any_date)
