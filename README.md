@@ -78,8 +78,8 @@ Make sure you have a virtual environment set up for your project, using
 
 Configure your `.env` file: define sensible credential variables, for example:
 ```bash
-API_USER=anyone
-API_KEY=hasasecret
+API_USER='anyone'
+API_TOKEN='hasasecret'
 ```
 
 The script automatically exports all variables defined in .env to the
