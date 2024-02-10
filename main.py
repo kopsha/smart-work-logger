@@ -231,7 +231,7 @@ def main(args: Namespace, config: SimpleNamespace):
         publish_jira_worklogs(missing_logs, client)
         print(f"Published {len(missing_logs)} work logs to {config.jira.server}.")
     else:
-        print("Worklogs were not published, please specify --publish arg.")
+        print("Worklogs were not published, please run with --publish.")
 
 
 if __name__ == "__main__":
