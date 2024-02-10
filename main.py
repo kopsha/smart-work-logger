@@ -138,11 +138,11 @@ def publish_jira_worklogs(client: JIRA, worklogs: list):
     """Adds a worklog to a JIRA ticket."""
     for log in worklogs:
         print(f" -> Pushing {log.time_spent}h on {log.issue}, for {log.date}")
-        client.add_worklog(
-            issue=log.issue,
-            timeSpent=f"{log.time_spent}h",
-            started=datetime.fromisoformat(log.date),
-        )
+        # client.add_worklog(
+        #     issue=log.issue,
+        #     timeSpent=f"{log.time_spent}h",
+        #     started=datetime.fromisoformat(log.date),
+        # )
 
 
 def main():
@@ -152,13 +152,8 @@ def main():
         "../../work/configurator-api/",
         "../../work/configurator-www",
     ]
-    any_date = date(2024, 1, 5)
-    skip = make_skip_days(
-        [
-            "2024-01-01..2024-01-05",
-            "2024-01-24",
-        ]
-    )
+    any_date = date(2024, 2, 1)
+    skip = make_skip_days([])
 
     ## Start the job
     first, last = first_and_last(any_date)
