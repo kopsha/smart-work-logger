@@ -2,14 +2,13 @@
 from datetime import date, timedelta, datetime
 from collections import namedtuple, defaultdict
 from types import SimpleNamespace
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 import os
 import re
 import subprocess
 import tomllib
 
 from jira import JIRA
-
 
 
 WorklogEntry = namedtuple("WorklogEntry", "date issue time_spent author")
@@ -39,10 +38,10 @@ def load_config(filename: str) -> SimpleNamespace:
     return ns_config
 
 
-def connect(config: SimpleNamespace):
+def connect(config: SimpleNamespace) -> tuple[JIRA, dict]:
     client = JIRA(
         options={"server": config.jira.server},
-        basic_auth=(config.jira.api_user, config.jira.api_key)
+        basic_auth=(config.jira.api_user, config.jira.api_key),
     )
 
     user = client.myself()
@@ -51,18 +50,9 @@ def connect(config: SimpleNamespace):
     return client, user
 
 
-def first_and_last(of_date: date):
-    start = of_date.replace(day=1)
-
-    if of_date.month == 12:  # Special case for December
-        end = of_date.replace(year=of_date.year + 1, month=1, day=1) - timedelta(days=1)
-    else:
-        end = of_date.replace(month=of_date.month + 1, day=1) - timedelta(days=1)
-
-    return start, end
-
-
-def get_worklogs(client: JIRA, user: dict, first: date, last: date):
+def get_worklogs(
+    client: JIRA, user: dict, first: date, last: date
+) -> defaultdict[str, list[WorklogEntry]]:
     print("Looking up JIRA worklogs between", first, "and", last)
     query = (
         f"worklogAuthor = {user} AND worklogDate >= {first} AND worklogDate <= {last}"
@@ -157,20 +147,22 @@ def make_time_logs(author: str, day: str, goal_hours: float, tickets: list):
     return logs
 
 
-def preview_jira_worklogs(worklogs: list):
+def preview_day_logs(worklogs: list):
     for log in worklogs:
         print(f" -> Assumed {log.time_spent}h on {log.issue}, for {log.date}")
 
-def publish_jira_worklogs(worklogs: list, client: JIRA):
-    for log in worklogs:
-        client.add_worklog(
-            issue=log.issue,
-            timeSpent=f"{log.time_spent}h",
-            started=datetime.fromisoformat(log.date),
-        )
+
+def publish_jira_worklogs(worklogs: dict[str, list[WorklogEntry]], client: JIRA):
+    for logs in worklogs.values():
+        for log in logs:
+            client.add_worklog(
+                issue=log.issue,
+                timeSpent=f"{log.time_spent}h",
+                started=datetime.fromisoformat(log.date),
+            )
 
 
-def main(args: SimpleNamespace, config: SimpleNamespace):
+def main(args: Namespace, config: SimpleNamespace):
     ## Use settings and arguments
     first = config.today.replace(day=1)
     last = config.today
@@ -206,13 +198,14 @@ def main(args: SimpleNamespace, config: SimpleNamespace):
             new_logs = make_time_logs(
                 user["accountId"], day_str, remaining_hours, tickets
             )
-            preview_jira_worklogs(new_logs)
+            preview_day_logs(new_logs)
             missing_logs[day_str].extend(new_logs)
         else:
             print(f" -> No logs needed for {day_str}, {already_booked=} hours.")
 
+    ## Actually writing something
     if args.publish:
-        publish_jira_worklogs(missing_logs)
+        publish_jira_worklogs(missing_logs, client)
         print(f"Published {len(missing_logs)} work logs to {config.jira.server}.")
     else:
         print("Worklogs were not published, please specify --publish arg.")
@@ -220,15 +213,24 @@ def main(args: SimpleNamespace, config: SimpleNamespace):
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("-p", "--publish", action="store_true", help="Publishes the generated logs to JIRA")
-    parser.add_argument("--today", type=date.fromisoformat, help="The target day in YYYY-MM-DD format")
-    parser.add_argument("--current_task", type=str, help="Specifies the current task to start logging from")
+    parser.add_argument(
+        "-p",
+        "--publish",
+        action="store_true",
+        help="Publishes the generated logs to JIRA",
+    )
+    parser.add_argument(
+        "--today", type=date.fromisoformat, help="The target day in YYYY-MM-DD format"
+    )
+    parser.add_argument(
+        "--current_task",
+        type=str,
+        help="Specifies the current task to start logging from",
+    )
 
     args = parser.parse_args()
 
     config = load_config("project.toml")
     config.today = args.today if args.today else date.today()
-
-    print(config)
 
     main(args, config)
