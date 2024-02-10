@@ -1,0 +1,12 @@
+ticket_pattern = "#([A-Z]{4}-\\d+)"
+daily_target = 8.0
+skip_days = []
+repositories = [
+    "../../work/partner-portal/",
+    "../../work/configurator-api/",
+    "../../work/configurator-www",
+]
+
+[jira]
+server = "https://jibecompany.atlassian.net"
+

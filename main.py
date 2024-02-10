@@ -1,26 +1,49 @@
 #!/usr/bin/env python3
 from datetime import date, timedelta, datetime
 from collections import namedtuple, defaultdict
+from types import SimpleNamespace
+from argparse import ArgumentParser
 import os
 import re
 import subprocess
+import tomllib
 
 from jira import JIRA
 
-from pprint import pprint
 
 
 WorklogEntry = namedtuple("WorklogEntry", "date issue time_spent author")
 GitlogEntry = namedtuple("GitlogEntry", "date time message")
-TICKET_PATTERN = re.compile(r"#([A-Z]{4}-\d+)")
-DAILY_HOURS = 8.0
 
 
-def connect():
-    api_user = os.getenv("API_USER")
-    api_key = os.getenv("API_TOKEN")
-    api_root = "https://jibecompany.atlassian.net"
-    client = JIRA(options={"server": api_root}, basic_auth=(api_user, api_key))
+def ns_from(config: dict) -> SimpleNamespace:
+    """Creates namespace objects from config dictionary"""
+    for key, value in config.items():
+        if isinstance(value, dict):
+            config[key] = ns_from(value)
+    return SimpleNamespace(**config)
+
+
+def load_config(filename: str) -> SimpleNamespace:
+    """Parses indicated configuration file into a namespace object"""
+    with open(filename, "rb") as config_file:
+        config = tomllib.load(config_file)
+
+    # Overwrite with environment variables
+    if api_user := os.getenv("API_USER"):
+        config["jira"]["api_user"] = api_user
+    if api_key := os.getenv("API_TOKEN"):
+        config["jira"]["api_key"] = api_key
+
+    ns_config = ns_from(config)
+    return ns_config
+
+
+def connect(config: SimpleNamespace):
+    client = JIRA(
+        options={"server": config.jira.server},
+        basic_auth=(config.jira.api_user, config.jira.api_key)
+    )
 
     user = client.myself()
     print("Connected as", user["displayName"], "::", user["accountId"])
@@ -118,10 +141,10 @@ def git_log_filter(repository_path: str, start: date, end: date, email: str):
     return entries
 
 
-def find_all_ticket_ids(gitlog_entries):
+def find_all_ticket_ids(gitlog_entries, use_pattern: re.Pattern):
     tickets = dict()
     for entry in gitlog_entries:
-        found_tickets = TICKET_PATTERN.findall(entry.message)
+        found_tickets = use_pattern.findall(entry.message)
         for ticket in found_tickets:
             tickets.setdefault(ticket, None)
 
@@ -134,61 +157,78 @@ def make_time_logs(author: str, day: str, goal_hours: float, tickets: list):
     return logs
 
 
-def publish_jira_worklogs(client: JIRA, worklogs: list):
-    """Adds a worklog to a JIRA ticket."""
+def preview_jira_worklogs(worklogs: list):
     for log in worklogs:
-        print(f" -> Pushing {log.time_spent}h on {log.issue}, for {log.date}")
-        # client.add_worklog(
-        #     issue=log.issue,
-        #     timeSpent=f"{log.time_spent}h",
-        #     started=datetime.fromisoformat(log.date),
-        # )
+        print(f" -> Assumed {log.time_spent}h on {log.issue}, for {log.date}")
+
+def publish_jira_worklogs(worklogs: list, client: JIRA):
+    for log in worklogs:
+        client.add_worklog(
+            issue=log.issue,
+            timeSpent=f"{log.time_spent}h",
+            started=datetime.fromisoformat(log.date),
+        )
 
 
-def main():
-    ## These might turn into program args
-    repos = [
-        "../../work/partner-portal/",
-        "../../work/configurator-api/",
-        "../../work/configurator-www",
-    ]
-    any_date = date(2024, 2, 1)
-    skip = make_skip_days([])
-
-    ## Start the job
-    first, last = first_and_last(any_date)
+def main(args: SimpleNamespace, config: SimpleNamespace):
+    ## Use settings and arguments
+    first = config.today.replace(day=1)
+    last = config.today
+    skip = make_skip_days(config.skip_days)
+    current_task = args.current_task
+    daily_target = float(config.daily_target)
+    ticket_pattern = re.compile(config.ticket_pattern)
 
     ## Read JIRA worklogs
-    client, user = connect()
+    client, user = connect(config)
     worklogs = get_worklogs(client, user["accountId"], first, last)
 
     ## Read and merge all GIT logs
     gitlogs = defaultdict(list)
-    for repo in repos:
+    for repo in config.repositories:
         logs = git_log_filter(repo, first, last, user["emailAddress"])
         for log in logs:
             gitlogs[log.date].append(log)
 
-    ## Fill in missing days
-    current_task = "SOOL-2215"  # This may be set from program args
+    ## Compute new logs by filling incomplete days
+    missing_logs = defaultdict(list)
     for day in reverse_workdays(first, last, skip):
         day_str = str(day)
 
         day_logs = sorted(gitlogs[day_str], key=lambda x: x.time, reverse=True)
-        day_tickets = find_all_ticket_ids(day_logs)
+        day_tickets = find_all_ticket_ids(day_logs, use_pattern=ticket_pattern)
         tickets = [current_task] + day_tickets if current_task else day_tickets
 
         already_booked = sum(x.time_spent for x in worklogs[day_str])
-        remaining_hours = float(DAILY_HOURS) - already_booked
+        remaining_hours = daily_target - already_booked
         if remaining_hours > 0 and tickets:
             current_task = tickets[-1]
             new_logs = make_time_logs(
                 user["accountId"], day_str, remaining_hours, tickets
             )
-            publish_jira_worklogs(client, new_logs)
+            preview_jira_worklogs(new_logs)
+            missing_logs[day_str].extend(new_logs)
         else:
-            print(f"No updates needed for {day_str}, {already_booked=} hours.")
+            print(f" -> No logs needed for {day_str}, {already_booked=} hours.")
+
+    if args.publish:
+        publish_jira_worklogs(missing_logs)
+        print(f"Published {len(missing_logs)} work logs to {config.jira.server}.")
+    else:
+        print("Worklogs were not published, please specify --publish arg.")
 
 
 if __name__ == "__main__":
-    main()
+    parser = ArgumentParser()
+    parser.add_argument("-p", "--publish", action="store_true", help="Publishes the generated logs to JIRA")
+    parser.add_argument("--today", type=date.fromisoformat, help="The target day in YYYY-MM-DD format")
+    parser.add_argument("--current_task", type=str, help="Specifies the current task to start logging from")
+
+    args = parser.parse_args()
+
+    config = load_config("project.toml")
+    config.today = args.today if args.today else date.today()
+
+    print(config)
+
+    main(args, config)
