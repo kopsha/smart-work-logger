@@ -1,4 +1,5 @@
 ticket_pattern = "#([A-Z]{4}-\\d+)"
+git_author_pattern = "florin.ciurcanu"
 daily_target = 8.0
 skip_days = []
 repositories = [

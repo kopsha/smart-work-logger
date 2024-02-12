@@ -76,7 +76,7 @@ def get_worklogs(
                     time_spent=log.timeSpentSeconds / 3600,
                     author=log.author.displayName,
                 )
-                worklogs[str(entry.date)].append(entry)
+                worklogs[entry.date.isoformat()].append(entry)
 
     return worklogs
 
@@ -127,7 +127,7 @@ def shell(command: str) -> str:
 
 
 def git_log_filter(
-    repository_path: str, start: date, end: date, email: str
+    repository_path: str, start: date, end: date, author: str
 ) -> list[GitlogEntry]:
     """Parses git commits within date range filtered by the author email"""
 
@@ -139,7 +139,7 @@ def git_log_filter(
     shell(f"git -C {root} pull")
     cmd = (
         f"git -C {root} log --since={start.isoformat()} --until={end.isoformat()} "
-        f"--date=format:'%Y-%m-%d?&?%H:%M:%S' --pretty=format:'%cd?&?%s' --author={email}"
+        f"--date=format:'%Y-%m-%d?&?%H:%M:%S' --pretty=format:'%cd?&?%s' --{author=}"
     )
     output = shell(cmd)
     entries = [GitlogEntry(*line.split("?&?")) for line in output.splitlines()]
@@ -193,6 +193,7 @@ def main(args: Namespace, config: SimpleNamespace):
     current_task = args.current_task
     daily_target = float(config.daily_target)
     ticket_pattern = re.compile(config.ticket_pattern)
+    author_pattern = config.git_author_pattern
 
     ## Read JIRA worklogs
     client, user = connect(config)
@@ -201,14 +202,14 @@ def main(args: Namespace, config: SimpleNamespace):
     ## Read and merge all GIT logs
     gitlogs = defaultdict(list)
     for repo in config.repositories:
-        logs = git_log_filter(repo, first, last, user["emailAddress"])
+        logs = git_log_filter(repo, first, last, author_pattern)
         for log in logs:
             gitlogs[log.date].append(log)
 
     ## Compute new logs by filling incomplete days
     missing_logs = defaultdict(list)
     for day in reverse_workdays(first, last, skip):
-        day_str = str(day)
+        day_str = day.isoformat()
 
         day_logs = sorted(gitlogs[day_str], key=lambda x: x.time, reverse=True)
         day_tickets = find_all_ticket_ids(day_logs, use_pattern=ticket_pattern)
