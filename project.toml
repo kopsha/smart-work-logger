@@ -1,11 +1,13 @@
 ticket_pattern = "#([A-Z]{4}-\\d+)"
-git_author_pattern = "florin.ciurcanu"
+git_author_pattern = "Florin Ciurcanu"
 daily_target = 8.0
 skip_days = []
 repositories = [
     "../../work/partner-portal/",
     "../../work/configurator-api/",
     "../../work/configurator-www",
+    "../../work/soolutions-infra/",
+    "../../work/infrau/",
 ]
 
 [jira]

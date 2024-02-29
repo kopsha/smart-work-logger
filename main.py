@@ -213,12 +213,18 @@ def main(args: Namespace, config: SimpleNamespace):
 
         day_logs = sorted(gitlogs[day_str], key=lambda x: x.time, reverse=True)
         day_tickets = find_all_ticket_ids(day_logs, use_pattern=ticket_pattern)
-        tickets = [current_task] + day_tickets if current_task else day_tickets
+        if current_task and current_task not in day_tickets:
+            tickets = [current_task] + day_tickets
+        else:
+            tickets = day_tickets
 
         already_booked = sum(x.time_spent for x in worklogs[day_str])
         remaining_hours = daily_target - already_booked
-        if remaining_hours > 0 and tickets:
+
+        if tickets:
             current_task = tickets[-1]
+
+        if remaining_hours > 0 and tickets:
             new_logs = make_time_logs(
                 user["accountId"], day_str, remaining_hours, tickets
             )
