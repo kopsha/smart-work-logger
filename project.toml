@@ -8,6 +8,8 @@ repositories = [
     "../../work/configurator-www",
     "../../work/soolutions-infra/",
     "../../work/infrau/",
+    "../../work/idu/",
+    "../../work/nodeu/",
 ]
 
 [jira]
