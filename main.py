@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
-from datetime import date, timedelta, datetime
-from collections import namedtuple, defaultdict, abc
-from types import SimpleNamespace
-from argparse import ArgumentParser, Namespace
 import os
 import re
 import subprocess
 import tomllib
+from argparse import ArgumentParser, Namespace
+from collections import abc, defaultdict, namedtuple
+from datetime import date, datetime, timedelta
+from types import SimpleNamespace
 
 from jira import JIRA
-
 
 WorklogEntry = namedtuple("WorklogEntry", "date issue time_spent author")
 GitlogEntry = namedtuple("GitlogEntry", "date time message")
