@@ -252,7 +252,7 @@ if __name__ == "__main__":
         "--today", type=date.fromisoformat, help="The target day in YYYY-MM-DD format"
     )
     parser.add_argument(
-        "--current_task",
+        "--current-task",
         type=str,
         help="Specifies the current task to start logging from",
     )
