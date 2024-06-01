@@ -6,6 +6,7 @@ import tomllib
 from argparse import ArgumentParser, Namespace
 from collections import abc, defaultdict, namedtuple
 from datetime import date, datetime, timedelta
+from math import isclose
 from types import SimpleNamespace
 
 from jira import JIRA
@@ -155,6 +156,8 @@ def find_all_ticket_ids(
     for entry in gitlog_entries:
         found_tickets = use_pattern.findall(entry.message)
         for ticket in found_tickets:
+            if ticket.startswith("FOOD"):
+                ticket = ticket.replace("FOOD", "DATAU")
             tickets.setdefault(ticket, None)
 
     return list(tickets.keys())
@@ -191,6 +194,8 @@ def main(args: Namespace, config: SimpleNamespace):
     skip = make_skip_days(config.skip_days)
     current_task = args.current_task
     daily_target = float(config.daily_target)
+    daily_ticket, daily_duration = config.daily_meeting
+
     ticket_pattern = re.compile(config.ticket_pattern)
     author_pattern = config.git_author_pattern
 
@@ -219,12 +224,23 @@ def main(args: Namespace, config: SimpleNamespace):
 
         already_booked = sum(x.time_spent for x in worklogs[day_str])
         remaining_hours = daily_target - already_booked
+        daily_meetings = set(
+            x.issue
+            for x in worklogs[day_str]
+            if x.issue == daily_ticket and isclose(x.time_spent, daily_duration)
+        )
 
         if tickets:
             current_task = tickets[-1]
 
         if remaining_hours > 0 and tickets:
-            new_logs = make_time_logs(
+            if daily_meetings:
+                meeting_logs = []
+            else:
+                meeting_logs = make_time_logs(user["accountId"], day_str, daily_duration, [daily_ticket])
+                remaining_hours -= daily_duration
+
+            new_logs = meeting_logs + make_time_logs(
                 user["accountId"], day_str, remaining_hours, tickets
             )
             preview_day_logs(new_logs)
