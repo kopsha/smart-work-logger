@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
-from datetime import date, timedelta, datetime
-from collections import namedtuple, defaultdict, abc
-from types import SimpleNamespace
 import os
+import re
 import subprocess
 import tomllib
+from collections import abc, defaultdict, namedtuple
+from datetime import date, datetime, timedelta
+from types import SimpleNamespace
 
 from jira import JIRA
 
-
 WorklogEntry = namedtuple("WorklogEntry", "date issue time_spent author")
 GitlogEntry = namedtuple("GitlogEntry", "date time message")
+
+GitCommit = namedtuple("GitCommit", "hash date author message tags")
+CommitAction = namedtuple("CommitAction", "insertions deletions path")
 
 
 def ns_from(config: dict) -> SimpleNamespace:
@@ -143,6 +146,42 @@ def git_log_filter(
     entries = [GitlogEntry(*line.split("?&?")) for line in output.splitlines()]
 
     return entries
+
+
+def git_log_actions(
+    repository_path: str, start: date, end: date, skip_files: re.Pattern
+) -> tuple[list[GitCommit], dict[str, list[CommitAction]]]:
+    """returns all git commits with its summary by file"""
+
+    root = os.path.abspath(repository_path)
+    repo_name = os.path.basename(root)
+    branch = shell(f"git -C {root} branch --show-current")
+
+    print(f"Updating repository {repo_name} on {branch=}")
+    # shell(f"git -C {root} pull")
+    cmd = (
+        f"git -C {root} log --numstat --since={start.isoformat()} --until={end.isoformat()} "
+        "--pretty=format:'$%h$%ad$%aE$%s$%d' --date=format:'%Y-%m-%d'"
+    )
+    output = shell(cmd)
+
+    history = list()
+    commit_actions = defaultdict(list)
+    last_commit = None
+    for line in output.splitlines():
+        if not line.strip():
+            continue
+
+        if line.startswith("$"):
+            last_commit = GitCommit(*line.lstrip("$").split("$"))
+            history.append(last_commit)
+        else:
+            action_metas = line.strip().split("\t")
+            action = CommitAction(*action_metas)
+            if not skip_files.search(action.path) and "vendor" not in action.path and "migrations" not in action.path:
+                commit_actions[last_commit.hash].append(action)
+
+    return history, commit_actions
 
 
 if __name__ == "__main__":
