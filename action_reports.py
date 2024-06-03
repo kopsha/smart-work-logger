@@ -24,7 +24,7 @@ def default_stats():
 def main(args: Namespace, config: SimpleNamespace):
     ## Use settings and arguments
     last = config.today
-    first = last - timedelta(days=28)
+    first = last - timedelta(days=28*2)
     ignore_pattern = re.compile(config.ignore_file_pattern)
     skip = make_skip_days(config.skip_days)
 
@@ -37,7 +37,7 @@ def main(args: Namespace, config: SimpleNamespace):
             repo, start=first, end=last, skip_files=ignore_pattern
         )
         for commit in history:
-            seen_authors.add(commit.author)
+            seen_authors.add(commit.author.title())
             insertions, deletions = 0, 0
             for action in commit_actions[commit.hash]:
                 seen_files.add(action.path)
@@ -45,7 +45,7 @@ def main(args: Namespace, config: SimpleNamespace):
                 deletions += int(action.deletions)
             a_date = date.fromisoformat(commit.date)
             commits_index[commit.date].append(
-                AuthorCommitStats(a_date, commit.author, insertions, deletions)
+                AuthorCommitStats(a_date, commit.author.title(), insertions, deletions)
             )
 
     ## Build weekly stats

@@ -158,7 +158,7 @@ def git_log_actions(
     branch = shell(f"git -C {root} branch --show-current")
 
     print(f"Updating repository {repo_name} on {branch=}")
-    # shell(f"git -C {root} pull")
+    shell(f"git -C {root} pull")
     cmd = (
         f"git -C {root} log --numstat --since={start.isoformat()} --until={end.isoformat()} "
         "--pretty=format:'$%h$%ad$%an$%s$%d' --date=format:'%Y-%m-%d'"
