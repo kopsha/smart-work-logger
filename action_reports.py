@@ -1,49 +1,74 @@
 #!/usr/bin/env python3
 import re
 from argparse import ArgumentParser, Namespace
-from collections import namedtuple
-from datetime import date
+from collections import defaultdict, namedtuple
+from datetime import date, timedelta
 from types import SimpleNamespace
+from statistics import mean
 
-import pandas as pd
+from helpers.generic import (
+    git_log_actions,
+    load_config,
+    make_skip_days,
+    reverse_workdays,
+)
 
-from helpers.generic import git_log_actions, load_config
+AuthorCommitStats = namedtuple("AuthorCommitStats", "date author insertions deletions")
+Stats = namedtuple("Stats", "insertions deletions")
 
-GitCommitStats = namedtuple("GitCommitStats", "date year week author insertions deletions")
+
+def default_stats():
+    return Stats(0, 0)
 
 
 def main(args: Namespace, config: SimpleNamespace):
     ## Use settings and arguments
-    first = config.today.replace(month=1, day=1)
     last = config.today
+    first = last - timedelta(days=28)
     ignore_pattern = re.compile(config.ignore_file_pattern)
+    skip = make_skip_days(config.skip_days)
 
-    ## Read and merge all GIT logs
-    data = list()
-    files = set()
-
+    ## Merge and index all GIT commits by date
+    commits_index = defaultdict(list)
+    seen_files = set()
+    seen_authors = set()
     for repo in config.repositories:
-        print(f"{repo=}")
         history, commit_actions = git_log_actions(
             repo, start=first, end=last, skip_files=ignore_pattern
         )
         for commit in history:
+            seen_authors.add(commit.author)
             insertions, deletions = 0, 0
-            for a in commit_actions[commit.hash]:
-                files.add(a.path)
-                print(a)
-                insertions += int(a.insertions)
-                deletions += int(a.deletions)
+            for action in commit_actions[commit.hash]:
+                seen_files.add(action.path)
+                insertions += int(action.insertions)
+                deletions += int(action.deletions)
             a_date = date.fromisoformat(commit.date)
-            data.append(
-                GitCommitStats(a_date, a_date.year, a_date.isocalendar().week, commit.author, insertions, deletions)
+            commits_index[commit.date].append(
+                AuthorCommitStats(a_date, commit.author, insertions, deletions)
             )
 
-    df = pd.DataFrame(data)
-    with pd.ExcelWriter("action_report.xlsx", engine="xlsxwriter") as writer:
-        df.to_excel(writer, index=False)
-    print("Wrote", len(data), "rows to action_report.xlsx")
-    print(*sorted(files), sep="\n")
+    ## Build weekly stats
+    author_weekly = {author: defaultdict(default_stats) for author in seen_authors}
+    weeks = set()
+    for day in reverse_workdays(first, last, skip=skip):
+        day_str = day.isoformat()
+        week = day.isocalendar().week
+        weeks.add(week)
+
+        for ci in commits_index[day_str]:
+            prev = author_weekly[ci.author][week]
+            author_weekly[ci.author][week] = Stats(prev.insertions + ci.insertions, prev.deletions + ci.deletions)
+
+    ## Rating authors
+    for author, weekly in author_weekly.items():
+        insertions = mean(s.insertions for s in weekly.values())
+        deletions = mean(s.deletions for s in weekly.values())
+        print(author, Stats(insertions, deletions))
+
+        for week in sorted(weeks):
+            print(week, weekly[week])
+        
 
 
 if __name__ == "__main__":

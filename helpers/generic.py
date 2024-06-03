@@ -161,7 +161,7 @@ def git_log_actions(
     # shell(f"git -C {root} pull")
     cmd = (
         f"git -C {root} log --numstat --since={start.isoformat()} --until={end.isoformat()} "
-        "--pretty=format:'$%h$%ad$%aE$%s$%d' --date=format:'%Y-%m-%d'"
+        "--pretty=format:'$%h$%ad$%an$%s$%d' --date=format:'%Y-%m-%d'"
     )
     output = shell(cmd)
 

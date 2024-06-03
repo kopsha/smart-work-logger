@@ -9,11 +9,11 @@ repositories = [
     "../../work/configurator-api/",
     "../../work/configurator-www",
     "../../work/soolutions-infra/",
-    "../../work/infrau/",
-    "../../work/proxyu/",
-    "../../work/nodeu/",
-    "../../work/idu/",
-    "../../work/cau/",
+    # "../../work/infrau/",
+    # "../../work/proxyu/",
+    # "../../work/nodeu/",
+    # "../../work/idu/",
+    # "../../work/cau/",
 ]
 
 ignore_file_pattern = "(json|mov|ignore|png|ico|xlsx|po|excalidraw)$"
