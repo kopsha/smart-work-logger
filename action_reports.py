@@ -2,31 +2,30 @@
 import re
 from argparse import ArgumentParser, Namespace
 from collections import defaultdict, namedtuple
+from functools import reduce
 from datetime import date, timedelta
-from types import SimpleNamespace
 from statistics import mean
+from types import SimpleNamespace
 
-from helpers.generic import (
-    git_log_actions,
-    load_config,
-    make_skip_days,
-    reverse_workdays,
+from helpers.generic import git_log_actions, load_config, reverse_workdays
+
+AuthorCommitStats = namedtuple(
+    "AuthorCommitStats", "date author insertions deletions tickets"
 )
-
-AuthorCommitStats = namedtuple("AuthorCommitStats", "date author insertions deletions")
-Stats = namedtuple("Stats", "insertions deletions")
+Stats = namedtuple("Stats", "insertions deletions tickets")
 
 
 def default_stats():
-    return Stats(0, 0)
+    return Stats(0, 0, set())
 
 
 def main(args: Namespace, config: SimpleNamespace):
     ## Use settings and arguments
     last = config.today
-    first = last - timedelta(days=28*2)
+    first = last - timedelta(days=28 * 2)
     ignore_pattern = re.compile(config.ignore_file_pattern)
-    skip = make_skip_days(config.skip_days)
+    ticket_pattern = re.compile(config.ticket_pattern)
+    skip = set()
 
     ## Merge and index all GIT commits by date
     commits_index = defaultdict(list)
@@ -38,14 +37,24 @@ def main(args: Namespace, config: SimpleNamespace):
         )
         for commit in history:
             seen_authors.add(commit.author.title())
+
             insertions, deletions = 0, 0
             for action in commit_actions[commit.hash]:
                 seen_files.add(action.path)
                 insertions += int(action.insertions)
                 deletions += int(action.deletions)
             a_date = date.fromisoformat(commit.date)
+
+            tickets = set(ticket_pattern.findall(commit.message))
+
             commits_index[commit.date].append(
-                AuthorCommitStats(a_date, commit.author.title(), insertions, deletions)
+                AuthorCommitStats(
+                    a_date,
+                    commit.author.title(),
+                    insertions,
+                    deletions,
+                    tickets
+                )
             )
 
     ## Build weekly stats
@@ -58,17 +67,21 @@ def main(args: Namespace, config: SimpleNamespace):
 
         for ci in commits_index[day_str]:
             prev = author_weekly[ci.author][week]
-            author_weekly[ci.author][week] = Stats(prev.insertions + ci.insertions, prev.deletions + ci.deletions)
+            author_weekly[ci.author][week] = Stats(
+                prev.insertions + ci.insertions,
+                prev.deletions + ci.deletions,
+                prev.tickets | ci.tickets,
+            )
 
     ## Rating authors
     for author, weekly in author_weekly.items():
-        insertions = mean(s.insertions for s in weekly.values())
-        deletions = mean(s.deletions for s in weekly.values())
-        print(author, Stats(insertions, deletions))
+        insertions = round(mean(s.insertions for s in weekly.values()), 1)
+        deletions = round(mean(s.deletions for s in weekly.values()), 1)
+        tickets = reduce(lambda acc, el: acc | el, (s.tickets for s in weekly.values()))
+        print(author, "Average", Stats(insertions, deletions, len(tickets)))
 
         for week in sorted(weeks):
             print(week, weekly[week])
-        
 
 
 if __name__ == "__main__":
