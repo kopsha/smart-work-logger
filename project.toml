@@ -22,5 +22,5 @@ ignore_file_pattern = "(json|mov|ignore|png|ico|xlsx|po|excalidraw)$"
 server = "https://jibecompany.atlassian.net"
 
 [slack]
-channel = "checkmeout"
+channel = "C076SDUBV63"
 
