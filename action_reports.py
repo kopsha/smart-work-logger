@@ -8,7 +8,7 @@ from statistics import mean
 from types import SimpleNamespace
 
 from helpers.generic import git_log_actions, load_config, reverse_workdays
-from helpers.slack import send_slack_message
+from helpers.slack import SlackClient
 
 
 AuthorCommitStats = namedtuple(
@@ -21,10 +21,17 @@ def default_stats():
     return Stats(0, 0, set())
 
 
+def publish_blocks(config: SimpleNamespace, data: dict):
+    token = config.slack.bot_token
+    channel_id = config.slack.channel
+    message = "Hello, this is a test message from Python using requests!"
+    send_slack_message(token, channel_id, message)
+
+
 def main(args: Namespace, config: SimpleNamespace):
     ## Use settings and arguments
     last = config.today
-    first = last - timedelta(days=28 * 2)
+    first = last - timedelta(days=7 * 8)
     ignore_pattern = re.compile(config.ignore_file_pattern)
     ticket_pattern = re.compile(config.ticket_pattern)
     skip = set()
@@ -58,10 +65,15 @@ def main(args: Namespace, config: SimpleNamespace):
     ## Build weekly stats
     author_weekly = {author: defaultdict(default_stats) for author in seen_authors}
     weeks = set()
+    fridays = set()
     for day in reverse_workdays(first, last, skip=skip):
         day_str = day.isoformat()
         week = day.isocalendar().week
         weeks.add(week)
+
+        days_to_friday = 4 - day.weekday()
+        friday = day + timedelta(days=days_to_friday)
+        fridays.add(friday.isoformat())
 
         for ci in commits_index[day_str]:
             prev = author_weekly[ci.author][week]
@@ -71,16 +83,43 @@ def main(args: Namespace, config: SimpleNamespace):
                 prev.tickets | ci.tickets,
             )
 
+    ## Prepare slack blocks
+    head_block = dict(
+        type="section",
+        text=dict(
+            type="mrkdwn",
+            text=f"Weekly git commit stats up-to *{config.today}*.\nLegend: (+) insertions, (-) deletetions, (t) tickets",
+        ),
+    )
+    pretty_weeks = ["Week", "Average", *sorted(fridays)]
+    author_blocks = dict(
+        type="section",
+        fields=[
+            {"type": "mrkdwn", "text": "\n".join(pretty_weeks)},
+        ],
+    )
+
     ## Rating authors
     for author, weekly in author_weekly.items():
         insertions = round(mean(s.insertions for s in weekly.values()), 1)
         deletions = round(mean(s.deletions for s in weekly.values()), 1)
         tickets = reduce(lambda acc, el: acc | el, (s.tickets for s in weekly.values()))
         print(author, "Average", Stats(insertions, deletions, len(tickets)))
+        lines = [
+            author,
+            f"(+) {insertions}, (-) {deletions}, (t) {len(tickets)}",
+        ]
 
         for week in sorted(weeks):
             print(week, weekly[week])
+            lines.append(
+                f"(+) {weekly[week].insertions}, (-) {weekly[week].deletions}, (t) {len(weekly[week].tickets)}"
+            )
 
+        author_blocks["fields"].append(dict(type="mrkdwn", text="\n".join(lines)))
+
+    slack = SlackClient(config.slack.bot_token, config.slack.channel)
+    slack.send_blocks([head_block, author_blocks])
 
 
 if __name__ == "__main__":
@@ -94,8 +133,4 @@ if __name__ == "__main__":
     config = load_config("project.toml")
     config.today = args.today if args.today else date.today()
 
-    token = config.slack.bot_token
-    channel_id = config.slack.channel
-    message = "Hello, this is a test message from Python using requests!"
-    send_slack_message(token, channel_id, message)
-    # main(args, config)
+    main(args, config)
