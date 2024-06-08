@@ -4,6 +4,7 @@ daily_target = 8
 daily_meeting = ["SOOL-289", 0.25]
 # daily_meeting = ["DATAU-25", 0.25]
 skip_days = ["2024-05-01", "2024-05-03", "2024-05-06"]
+weeks_behind = 7
 repositories = [
     "../../work/partner-portal/",
     "../../work/configurator-api/",
@@ -22,5 +23,6 @@ ignore_file_pattern = "(json|mov|ignore|png|ico|xlsx|po|excalidraw)$"
 server = "https://jibecompany.atlassian.net"
 
 [slack]
-channel = "C076SDUBV63"
+# channel = "C076SDUBV63"  # checkmeout
+channel = "C02JWQA5AGK"  # soolutions
 
