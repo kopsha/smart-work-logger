@@ -8,6 +8,8 @@ from statistics import mean
 from types import SimpleNamespace
 
 from helpers.generic import git_log_actions, load_config, reverse_workdays
+from helpers.slack import send_slack_message
+
 
 AuthorCommitStats = namedtuple(
     "AuthorCommitStats", "date author insertions deletions tickets"
@@ -49,11 +51,7 @@ def main(args: Namespace, config: SimpleNamespace):
 
             commits_index[commit.date].append(
                 AuthorCommitStats(
-                    a_date,
-                    commit.author.title(),
-                    insertions,
-                    deletions,
-                    tickets
+                    a_date, commit.author.title(), insertions, deletions, tickets
                 )
             )
 
@@ -83,11 +81,7 @@ def main(args: Namespace, config: SimpleNamespace):
         for week in sorted(weeks):
             print(week, weekly[week])
 
-    # slack_token = 'your-bot-token'
-    # channel_id = '#your-channel-id'  # Use the channel name with '#' or the channel ID
-    # message = 'Hello, this is a test message from Python using requests!'
-    #
-    # send_slack_message(slack_token, channel_id, message)
+
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -100,4 +94,8 @@ if __name__ == "__main__":
     config = load_config("project.toml")
     config.today = args.today if args.today else date.today()
 
-    main(args, config)
+    token = config.slack.bot_token
+    channel_id = config.slack.channel
+    message = "Hello, this is a test message from Python using requests!"
+    send_slack_message(token, channel_id, message)
+    # main(args, config)

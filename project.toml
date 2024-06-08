@@ -21,3 +21,6 @@ ignore_file_pattern = "(json|mov|ignore|png|ico|xlsx|po|excalidraw)$"
 [jira]
 server = "https://jibecompany.atlassian.net"
 
+[slack]
+channel = "checkmeout"
+
