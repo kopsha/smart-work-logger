@@ -83,6 +83,11 @@ def main(args: Namespace, config: SimpleNamespace):
         for week in sorted(weeks):
             print(week, weekly[week])
 
+    # slack_token = 'your-bot-token'
+    # channel_id = '#your-channel-id'  # Use the channel name with '#' or the channel ID
+    # message = 'Hello, this is a test message from Python using requests!'
+    #
+    # send_slack_message(slack_token, channel_id, message)
 
 if __name__ == "__main__":
     parser = ArgumentParser()
