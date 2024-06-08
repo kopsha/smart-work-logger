@@ -40,7 +40,7 @@ def main(args: Namespace, config: SimpleNamespace):
     print("* Daily summary *")
     for day in reverse_workdays(first, last, skip):
         day_str = day.isoformat()
-        
+
         if day_str in worklogs:
             tickets = {log.issue for log in worklogs[day_str]}
             hours = sum(log.time_spent for log in worklogs[day_str])
@@ -57,7 +57,6 @@ def main(args: Namespace, config: SimpleNamespace):
         print(f"  -  {issue:10}: {hours:>6.1f} h")
     print("               -----------")
     print(f"       (total)   {hours_acc:>6.1f} h")
-
 
 
 if __name__ == "__main__":

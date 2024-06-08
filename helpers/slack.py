@@ -1,7 +1,9 @@
-from slack_sdk.web import WebClient
-from slack_sdk.errors import SlackApiError
 import ssl
+
 import certifi
+from slack_sdk.errors import SlackApiError
+from slack_sdk.web import WebClient
+
 
 class SlackClient:
     def __init__(self, token: str, channel: str) -> None:

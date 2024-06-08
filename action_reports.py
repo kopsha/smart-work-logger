@@ -26,9 +26,7 @@ def friday_of_week(week_number, year=2024):
     # Calculate the start date of the given week (Monday)
     if first_day_of_year.weekday() <= 3:
         # Week starts on the first Monday after or on January 1st
-        start_of_week = first_day_of_year - timedelta(
-            days=first_day_of_year.weekday()
-        )
+        start_of_week = first_day_of_year - timedelta(days=first_day_of_year.weekday())
     else:
         # Week starts on the first Monday after January 1st
         start_of_week = first_day_of_year + timedelta(

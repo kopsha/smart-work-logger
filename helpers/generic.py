@@ -180,7 +180,11 @@ def git_log_actions(
         else:
             action_metas = line.strip().split("\t")
             action = CommitAction(*action_metas)
-            if not skip_files.search(action.path) and "vendor" not in action.path and "migrations" not in action.path:
+            if (
+                not skip_files.search(action.path)
+                and "vendor" not in action.path
+                and "migrations" not in action.path
+            ):
                 commit_actions[last_commit.hash].append(action)
 
     return history, commit_actions
