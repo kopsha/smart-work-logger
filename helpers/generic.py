@@ -36,6 +36,8 @@ def load_config(filename: str) -> SimpleNamespace:
         config["jira"]["api_user"] = api_user
     if api_key := os.getenv("API_TOKEN"):
         config["jira"]["api_key"] = api_key
+    if token := os.getenv("SLACK_BOT_TOKEN"):
+        config["slack"]["bot_token"] = token
 
     ns_config = ns_from(config)
     return ns_config
@@ -178,7 +180,11 @@ def git_log_actions(
         else:
             action_metas = line.strip().split("\t")
             action = CommitAction(*action_metas)
-            if not skip_files.search(action.path) and "vendor" not in action.path and "migrations" not in action.path:
+            if (
+                not skip_files.search(action.path)
+                and "vendor" not in action.path
+                and "migrations" not in action.path
+            ):
                 commit_actions[last_commit.hash].append(action)
 
     return history, commit_actions
