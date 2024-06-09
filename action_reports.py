@@ -69,15 +69,10 @@ def compute_weekly_stats(
         author: defaultdict(default_stats) for author in sorted(seen_authors)
     }
     weeks = set()
-    fridays = set()
     for day in reverse_workdays(first, last, skip=set()):
         day_str = day.isoformat()
         week = day.isocalendar().week
         weeks.add(week)
-
-        days_to_friday = 4 - day.weekday()
-        friday = day + timedelta(days=days_to_friday)
-        fridays.add(friday.isoformat())
 
         for ci in commits_index[day_str]:
             prev = author_weekly[ci.author][week]
@@ -100,6 +95,7 @@ def plot_code_metrics(today: date, author_weekly: dict) -> str:
 
     plt.figure(figsize=(13, 8))
 
+    colorizer = color_cycle()
     for author, weekly in author_weekly.items():
         metrics = [
             (stats.insertions * 2 + stats.deletions) / 3
@@ -112,6 +108,7 @@ def plot_code_metrics(today: date, author_weekly: dict) -> str:
             label=author,
             linewidth=4,
             alpha=0.72,
+            color=next(colorizer),
         )
 
     plt.xlabel("Weeks")
@@ -126,6 +123,14 @@ def plot_code_metrics(today: date, author_weekly: dict) -> str:
     plt.close()
 
     return fig_file
+
+
+def color_cycle():
+    colors = ["#dc241f", "#ffa600", "#18a95d", "#006fe6", "#9b0058"]
+    i, n = 0, len(colors)
+    while True:
+        yield colors[i]
+        i = (i + 1) % n
 
 
 def friday_of_week(week_number, year=2024):
