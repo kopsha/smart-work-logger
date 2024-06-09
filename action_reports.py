@@ -18,19 +18,25 @@ Stats = namedtuple("Stats", "insertions deletions tickets")
 
 
 def main(args: Namespace, config: SimpleNamespace):
-    ## Use settings and arguments
     last = args.today
     weeks_behind = last - timedelta(weeks=config.weeks_behind)
     first = weeks_behind - timedelta(days=weeks_behind.weekday())
 
+    seen_authors, commits_index = parse_git_logs(config, first, last)
+    author_weekly = compute_weekly_stats(seen_authors, commits_index, first, last)
+    outfile = plot_code_metrics(args.today, author_weekly)
+    publish_metrics_plot(args.today, outfile)
+
+
+def parse_git_logs(config: SimpleNamespace, first: date, last: date):
+    """Merge and index all GIT commits by date"""
     ignore_pattern = re.compile(config.ignore_file_pattern)
     ticket_pattern = re.compile(config.ticket_pattern)
-    skip = set()
 
-    ## Merge and index all GIT commits by date
     commits_index = defaultdict(list)
     seen_files = set()
     seen_authors = set()
+
     for repo in config.repositories:
         history, commit_actions = git_log_actions(
             repo, start=first, end=last, skip_files=ignore_pattern
@@ -53,13 +59,18 @@ def main(args: Namespace, config: SimpleNamespace):
                 )
             )
 
-    ## Build weekly stats
+    return seen_authors, commits_index
+
+
+def compute_weekly_stats(
+    seen_authors: set, commits_index: dict, first: date, last: date
+):
     author_weekly = {
         author: defaultdict(default_stats) for author in sorted(seen_authors)
     }
     weeks = set()
     fridays = set()
-    for day in reverse_workdays(first, last, skip=skip):
+    for day in reverse_workdays(first, last, skip=set()):
         day_str = day.isoformat()
         week = day.isocalendar().week
         weeks.add(week)
@@ -76,28 +87,11 @@ def main(args: Namespace, config: SimpleNamespace):
                 prev.tickets | ci.tickets,
             )
 
-    outfile = plot_code_metrics(args.today, author_weekly)
-    publish_metrics_plot(args.today, outfile)
+    return author_weekly
 
 
 def default_stats():
     return Stats(0, 0, set())
-
-
-def friday_of_week(week_number, year=2024):
-    first_day_of_year = date(year, 1, 1)
-
-    if first_day_of_year.weekday() <= 3:
-        start_of_week = first_day_of_year - timedelta(days=first_day_of_year.weekday())
-    else:
-        start_of_week = first_day_of_year + timedelta(
-            days=(7 - first_day_of_year.weekday())
-        )
-
-    start_date_of_week = start_of_week + timedelta(weeks=week_number - 1)
-    friday_date = start_date_of_week + timedelta(days=4)
-
-    return friday_date
 
 
 def plot_code_metrics(today: date, author_weekly: dict) -> str:
@@ -134,6 +128,22 @@ def plot_code_metrics(today: date, author_weekly: dict) -> str:
     return fig_file
 
 
+def friday_of_week(week_number, year=2024):
+    first_day_of_year = date(year, 1, 1)
+
+    if first_day_of_year.weekday() <= 3:
+        start_of_week = first_day_of_year - timedelta(days=first_day_of_year.weekday())
+    else:
+        start_of_week = first_day_of_year + timedelta(
+            days=(7 - first_day_of_year.weekday())
+        )
+
+    start_date_of_week = start_of_week + timedelta(weeks=week_number - 1)
+    friday_date = start_date_of_week + timedelta(days=4)
+
+    return friday_date
+
+
 def publish_metrics_plot(today: date, image_file: str):
     slack = SlackClient(config.slack.bot_token, config.slack.channel)
     slack.upload_image(
@@ -152,7 +162,7 @@ if __name__ == "__main__":
         "--today",
         type=date.fromisoformat,
         default=date.today(),
-        help="The target day in YYYY-MM-DD format"
+        help="The target day in YYYY-MM-DD format",
     )
 
     args = parser.parse_args()
