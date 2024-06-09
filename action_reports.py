@@ -6,6 +6,7 @@ from datetime import date, timedelta
 from types import SimpleNamespace
 
 import matplotlib.pyplot as plt
+from matplotlib import style
 
 from helpers.generic import git_log_actions, load_config, reverse_workdays
 from helpers.slack import SlackClient
@@ -16,32 +17,9 @@ AuthorCommitStats = namedtuple(
 Stats = namedtuple("Stats", "insertions deletions tickets")
 
 
-def default_stats():
-    return Stats(0, 0, set())
-
-
-def friday_of_week(week_number, year=2024):
-    first_day_of_year = date(year, 1, 1)
-
-    # Calculate the start date of the given week (Monday)
-    if first_day_of_year.weekday() <= 3:
-        # Week starts on the first Monday after or on January 1st
-        start_of_week = first_day_of_year - timedelta(days=first_day_of_year.weekday())
-    else:
-        # Week starts on the first Monday after January 1st
-        start_of_week = first_day_of_year + timedelta(
-            days=(7 - first_day_of_year.weekday())
-        )
-
-    start_date_of_week = start_of_week + timedelta(weeks=week_number - 1)
-    friday_date = start_date_of_week + timedelta(days=4)
-
-    return friday_date
-
-
 def main(args: Namespace, config: SimpleNamespace):
     ## Use settings and arguments
-    last = config.today
+    last = args.today
     weeks_behind = last - timedelta(weeks=config.weeks_behind)
     first = weeks_behind - timedelta(days=weeks_behind.weekday())
 
@@ -98,49 +76,87 @@ def main(args: Namespace, config: SimpleNamespace):
                 prev.tickets | ci.tickets,
             )
 
-    # Extract all weeks
+    outfile = plot_code_metrics(args.today, author_weekly)
+    publish_metrics_plot(args.today, outfile)
+
+
+def default_stats():
+    return Stats(0, 0, set())
+
+
+def friday_of_week(week_number, year=2024):
+    first_day_of_year = date(year, 1, 1)
+
+    if first_day_of_year.weekday() <= 3:
+        start_of_week = first_day_of_year - timedelta(days=first_day_of_year.weekday())
+    else:
+        start_of_week = first_day_of_year + timedelta(
+            days=(7 - first_day_of_year.weekday())
+        )
+
+    start_date_of_week = start_of_week + timedelta(weeks=week_number - 1)
+    friday_date = start_date_of_week + timedelta(days=4)
+
+    return friday_date
+
+
+def plot_code_metrics(today: date, author_weekly: dict) -> str:
+    """Plot the weekly stats and saves the graph as png"""
     weeks = sorted({week for weekly in author_weekly.values() for week in weekly})
 
-    # Prepare data for plotting
-    plt.figure(figsize=(14, 8))
+    plt.figure(figsize=(13, 8))
 
-    # Calculate the metrics and plot for each author
-    markers = ["x", "*", "o", "+", "d"]
-    for i, (author, weekly) in enumerate(author_weekly.items()):
+    for author, weekly in author_weekly.items():
         metrics = [
             (stats.insertions * 2 + stats.deletions) / 3
             for week in weeks
             for stats in [weekly[week]]
         ]
-        plt.plot(weeks, metrics, marker=markers[i % len(markers)], label=author)
+        plt.plot(
+            weeks,
+            metrics,
+            label=author,
+            linewidth=4,
+            alpha=0.72,
+        )
 
     plt.xlabel("Weeks")
     plt.ylabel("Coding score")
-    plt.title(f"Weekly code metrics up-to {config.today}")
+    plt.title(f"Weekly code metrics up-to {today.strftime('%a, %-d %b')}")
     plt.xticks(weeks, [friday_of_week(week).isoformat() for week in weeks], rotation=45)
     plt.legend()
     plt.tight_layout()
 
-    fig_file = f"weekly_metrics_{config.today}.png"
+    fig_file = f"out/weekly_metrics_{today.isoformat()}.png"
     plt.savefig(fig_file)
+    plt.close()
 
+    return fig_file
+
+
+def publish_metrics_plot(today: date, image_file: str):
     slack = SlackClient(config.slack.bot_token, config.slack.channel)
     slack.upload_image(
-        intro=f"Coding score stats for {config.today.strftime('%a %d %b')}:",
-        file_path=fig_file,
+        intro=f"Coding score stats for {today.strftime('%a, %-d %b')}:",
+        file_path=image_file,
     )
-    print(f"{fig_file} was published to slack channel.")
+    print(
+        f"The code metrics plot ({image_file}) was published to "
+        f"the #{config.slack.channel} channel."
+    )
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument(
-        "--today", type=date.fromisoformat, help="The target day in YYYY-MM-DD format"
+        "--today",
+        type=date.fromisoformat,
+        default=date.today(),
+        help="The target day in YYYY-MM-DD format"
     )
 
     args = parser.parse_args()
-
     config = load_config("project.toml")
-    config.today = args.today if args.today else date.today()
 
+    plt.style.use("ggplot")
     main(args, config)
