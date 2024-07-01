@@ -3,7 +3,7 @@ git_author_pattern = "Florin Ciurcanu"
 daily_target = 8
 daily_meeting = ["SOOL-289", 0.25]
 # daily_meeting = ["DATAU-25", 0.25]
-skip_days = ["2024-05-01", "2024-05-03", "2024-05-06"]
+skip_days = ["2024-05-01", "2024-05-03", "2024-05-06", "2024-06-24"]
 weeks_behind = 7
 repositories = [
     "../../work/partner-portal/",
