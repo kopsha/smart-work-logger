@@ -25,7 +25,7 @@ def main(args: Namespace, config: SimpleNamespace):
     seen_authors, commits_index = parse_git_logs(config, first, last)
     author_weekly = compute_weekly_stats(seen_authors, commits_index, first, last)
     outfile = plot_code_metrics(args.today, author_weekly)
-    publish_metrics_plot(args.today, outfile)
+    # publish_metrics_plot(args.today, outfile)
 
 
 def parse_git_logs(config: SimpleNamespace, first: date, last: date):
@@ -121,6 +121,7 @@ def plot_code_metrics(today: date, author_weekly: dict) -> str:
     fig_file = f"out/weekly_metrics_{today.isoformat()}.png"
     plt.savefig(fig_file)
     plt.close()
+    print(f"Saved plot as {fig_file}.")
 
     return fig_file
 

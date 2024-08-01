@@ -184,6 +184,8 @@ def git_log_actions(
                 not skip_files.search(action.path)
                 and "vendor" not in action.path
                 and "migrations" not in action.path
+                and action.insertions.isdigit()
+                and action.deletions.isdigit()
             ):
                 commit_actions[last_commit.hash].append(action)
 
