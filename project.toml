@@ -16,6 +16,7 @@ repositories = [
     "../../work/configurator-api/",
     "../../work/configurator-www",
     "../../work/soolutions-infra/",
+    "../../work/soolutions-www",
     # "../../work/infrau/",
     # "../../work/proxyu/",
     # "../../work/nodeu/",
