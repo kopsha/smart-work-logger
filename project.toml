@@ -1,15 +1,9 @@
 ticket_pattern = "#([A-Z]+-\\d+)"
 git_author_pattern = "Florin Ciurcanu"
 daily_target = 8
-daily_meeting = ["SOOL-289", 0.25]
+daily_meeting = ["TCVC-205", 0.4]
 # daily_meeting = ["DATAU-25", 0.25]
-skip_days = [
-    "2024-05-01",
-    "2024-05-03",
-    "2024-05-06",
-    "2024-06-24",
-    "2024-08-15..2024-08-23"
-]
+skip_days = ["2025-01-01..2025-01-10"]
 weeks_behind = 7
 repositories = [
     "../../work/partner-portal",
@@ -17,14 +11,11 @@ repositories = [
     "../../work/configurator-www",
     "../../work/soolutions-infra",
     "../../work/soolutions-www",
-    # "../../work/infrau",
-    # "../../work/proxyu",
-    # "../../work/nodeu",
-    # "../../work/idu",
-    # "../../work/cau",
+    "../../work/soolutions-infra",
+    "../../work/rc-agent-signage",
 ]
 
-ignore_file_pattern = "(json|mov|ignore|png|ico|xlsx|po|excalidraw)$"
+ignore_file_pattern = "(json|mov|ignore|png|ico|xlsx|po|excalidraw|a|la)$"
 
 [jira]
 server = "https://jibecompany.atlassian.net"
